@@ -1,0 +1,61 @@
+{
+  "name": "marketplace",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "serve": "vite preview",
+    "build": "vite build",
+    "lint": "vue-cli-service lint",
+    "dev": "vite",
+    "deploy": "vite build && firebase deploy",
+    "dev:emulate": "concurrently \"vite\" \"firebase emulators:start\""
+  },
+  "dependencies": {
+    "@mdi/font": "^7.0.96",
+    "core-js": "^3.8.3",
+    "firebase": "^10.14.1",
+    "roboto-fontface": "*",
+    "vue": "^3.4.0",
+    "vue-router": "^4.4.5",
+    "vuetify": "^3.0.0-beta.0",
+    "webfontloader": "^1.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.12.16",
+    "@babel/eslint-parser": "^7.12.16",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "@vue/cli-plugin-babel": "~5.0.0",
+    "@vue/cli-plugin-eslint": "~5.0.0",
+    "@vue/cli-service": "~5.0.0",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "eslint": "^7.32.0",
+    "eslint-plugin-vue": "^8.0.3",
+    "firebase-tools": "^13.22.0",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.1.6",
+    "vite": "^5.0.0",
+    "vite-plugin-vuetify": "^2.1.1",
+    "vue-cli-plugin-vuetify": "~2.5.8"
+  },
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "node": true
+    },
+    "extends": [
+      "plugin:vue/vue3-essential",
+      "eslint:recommended"
+    ],
+    "parserOptions": {
+      "parser": "@babel/eslint-parser"
+    },
+    "rules": {}
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "not ie 11"
+  ]
+}
