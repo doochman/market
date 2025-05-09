@@ -1,290 +1,393 @@
 <template>
     <v-container>
-      <h1 class="my-4">User Profile</h1>
-      <v-card class="pa-6" elevation="2">
-        <!-- User Info -->
+      <!-- Loading State -->
+      <v-row v-if="isLoading">
+        <v-col cols="12" class="text-center">
+          <v-progress-circular indeterminate color="#3B82F6" size="50"></v-progress-circular>
+        </v-col>
+      </v-row>
+      <!-- Error State -->
+      <v-row v-else-if="error">
+        <v-col cols="12">
+          <v-alert type="error" outlined rounded="lg">
+            {{ error }}
+          </v-alert>
+        </v-col>
+      </v-row>
+      <!-- Profile Content -->
+      <template v-else>
         <v-row>
-          <v-col cols="12" sm="4" class="text-center">
-            <v-avatar size="100">
-              <v-img :src="avatarSource" alt="User avatar"></v-img>
-            </v-avatar>
-            <v-file-input
-              v-if="isOwnProfile"
-              v-model="avatarFile"
-              label="Upload Avatar"
-              accept="image/*"
-              class="mt-2"
-              @change="uploadAvatar"
-            ></v-file-input>
-            <h2 class="mt-2">{{ profile.displayName || profile.email || 'User' }}</h2>
-          </v-col>
-          <v-col cols="12" sm="8">
-            <v-text-field
-              v-model="profile.name"
-              label="Name"
-              outlined
-              :disabled="!isOwnProfile"
-              @change="saveProfile"
-            ></v-text-field>
-            <v-text-field
-              v-model="profile.surname"
-              label="Surname"
-              outlined
-              :disabled="!isOwnProfile"
-              @change="saveProfile"
-            ></v-text-field>
-            <v-text-field
-              v-model="profile.companyEmail"
-              label="Company Email"
-              outlined
-              :disabled="!isOwnProfile"
-              @change="saveProfile"
-            ></v-text-field>
-            <v-text-field
-              v-model="profile.bio"
-              label="Bio"
-              outlined
-              :disabled="!isOwnProfile"
-              @change="saveProfile"
-            ></v-text-field>
-            <v-text-field
-              v-model="profile.country"
-              label="Country"
-              outlined
-              :disabled="!isOwnProfile"
-              @change="saveProfile"
-            ></v-text-field>
-            <v-btn v-if="isOwnProfile" color="primary" @click="saveProfile">Save Profile</v-btn>
+          <v-col cols="12">
+            <!-- Profile Details -->
+            <v-card class="profile-card pa-4 mb-6" elevation="2" rounded="lg">
+              <v-list>
+                <v-list-item>
+                  <v-list-item-avatar>
+                    <v-avatar size="48" color="#EC4899">
+                      <span class="text-white text-lg font-medium">
+                        {{ (profile.displayName || profile.email || 'U')?.[0]?.toUpperCase() || 'U' }}
+                      </span>
+                    </v-avatar>
+                  </v-list-item-avatar>
+                  <v-list-item-content>
+                    <v-list-item-title class="text-h6 font-weight-semibold text-gray-800">
+                      {{ profile.displayName || 'Unknown User' }}
+                    </v-list-item-title>
+                    <v-list-item-subtitle class="text-body-1 text-gray-700">
+                      {{ profile.email || 'No email' }}
+                    </v-list-item-subtitle>
+                  </v-list-item-content>
+                </v-list-item>
+                <v-list-item>
+                  <v-list-item-content>
+                    <v-list-item-title class="text-subtitle-1 font-weight-semibold text-gray-800">
+                      Role
+                    </v-list-item-title>
+                    <v-list-item-subtitle class="text-body-1 text-gray-700">
+                      {{ profile.role || 'User' }}
+                    </v-list-item-subtitle>
+                  </v-list-item-content>
+                </v-list-item>
+                <v-list-item>
+                  <v-list-item-content>
+                    <v-list-item-title class="text-subtitle-1 font-weight-semibold text-gray-800">
+                      Rating
+                    </v-list-item-title>
+                    <v-list-item-subtitle>
+                      <v-rating
+                        :value="profile.rating || 0"
+                        color="#FBBF24"
+                        background-color="#E5E7EB"
+                        half-increments
+                        readonly
+                        dense
+                        size="20"
+                      ></v-rating>
+                    </v-list-item-subtitle>
+                  </v-list-item-content>
+                </v-list-item>
+                <v-list-item>
+                  <v-list-item-content>
+                    <v-list-item-title class="text-subtitle-1 font-weight-semibold text-gray-800">
+                      Last Active
+                    </v-list-item-title>
+                    <v-list-item-subtitle>
+                      <v-chip small color="#E5E7EB" text-color="#1F2A44">
+                        {{ lastActiveFormatted || 'Unknown' }}
+                      </v-chip>
+                    </v-list-item-subtitle>
+                  </v-list-item-content>
+                </v-list-item>
+              </v-list>
+              <v-card-actions v-if="isOwnProfile || isAdmin">
+                <v-spacer></v-spacer>
+                <v-btn
+                  color="#3B82F6"
+                  dark
+                  depressed
+                  rounded
+                  @click="startEditing"
+                >
+                  Edit Profile
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+  
+            <!-- Edit Profile Form -->
+            <v-card v-if="editing" class="profile-card pa-4 mb-6" elevation="2" rounded="lg">
+              <v-form ref="profileForm" @submit.prevent="saveProfile">
+                <v-text-field
+                  v-model="editedProfile.displayName"
+                  label="Display Name"
+                  outlined
+                  dense
+                  class="mb-4"
+                  :rules="[v => !!v || 'Display name is required']"
+                ></v-text-field>
+                <v-text-field
+                  v-model="editedProfile.email"
+                  label="Email"
+                  outlined
+                  dense
+                  class="mb-4"
+                  disabled
+                ></v-text-field>
+                <v-text-field
+                  v-if="isAdmin"
+                  v-model.number="editedProfile.rating"
+                  label="Rating (0-5)"
+                  type="number"
+                  outlined
+                  dense
+                  class="mb-4"
+                  :rules="[v => (v >= 0 && v <= 5) || 'Rating must be between 0 and 5']"
+                ></v-text-field>
+                <div class="d-flex justify-end">
+                  <v-btn
+                    color="#4B5563"
+                    variant="text"
+                    depressed
+                    rounded
+                    @click="cancelEditing"
+                    class="mr-2"
+                  >
+                    Cancel
+                  </v-btn>
+                  <v-btn
+                    color="#3B82F6"
+                    dark
+                    type="submit"
+                    depressed
+                    rounded
+                    :loading="saving"
+                  >
+                    Save
+                  </v-btn>
+                </div>
+              </v-form>
+            </v-card>
+  
+            <!-- Assets Created -->
+            <v-card class="assets-card pa-4" elevation="2" rounded="lg">
+              <h3 class="text-h6 font-weight-semibold mb-4 text-gray-800">Assets Created</h3>
+              <v-list v-if="assets.length">
+                <v-list-item
+                  v-for="asset in assets"
+                  :key="asset.id"
+                  :to="'/asset/' + asset.id"
+                  class="asset-item"
+                >
+                  <v-list-item-content>
+                    <v-list-item-title class="text-subtitle-1 text-gray-800">
+                      {{ asset.title || 'Untitled Asset' }}
+                    </v-list-item-title>
+                    <v-list-item-subtitle class="text-body-2 text-gray-600">
+                      Created: {{ formatDate(asset.createdAt) }}
+                    </v-list-item-subtitle>
+                  </v-list-item-content>
+                </v-list-item>
+              </v-list>
+              <v-card-text v-else class="text-body-1 text-gray-600">
+                No assets created yet.
+              </v-card-text>
+            </v-card>
           </v-col>
         </v-row>
-        <v-divider class="my-4"></v-divider>
-        <!-- Activity Tabs -->
-        <v-tabs v-model="activeTab" color="primary">
-          <v-tab>Submitted Assets</v-tab>
-          <v-tab>Comments</v-tab>
-          <v-tab>Liked Tags</v-tab>
-        </v-tabs>
-        <v-tabs-items v-model="activeTab">
-          <!-- Submitted Assets -->
-          <v-tab-item>
-            <v-row class="mt-4">
-              <v-col v-for="asset in userAssets" :key="asset.id" cols="12" sm="6" md="4">
-                <v-card>
-                  <v-img :src="asset.imageUrl" height="150px" cover></v-img>
-                  <v-card-title>{{ asset.name }}</v-card-title>
-                  <v-card-text>{{ asset.description.substring(0, 100) }}...</v-card-text>
-                  <v-card-actions>
-                    <v-btn :to="'/asset/' + asset.id">View Details</v-btn>
-                  </v-card-actions>
-                </v-card>
-              </v-col>
-              <v-col v-if="!userAssets.length" cols="12">
-                <v-alert type="info">No assets submitted.</v-alert>
-              </v-col>
-            </v-row>
-          </v-tab-item>
-          <!-- Comments -->
-          <v-tab-item>
-            <v-list class="mt-4">
-              <v-list-item v-for="comment in userComments" :key="comment.id">
-                <v-list-item-content>
-                  <v-list-item-title>
-                    On <router-link :to="'/asset/' + comment.assetId">{{ comment.assetName }}</router-link>
-                  </v-list-item-title>
-                  <v-list-item-subtitle>{{ comment.text }}</v-list-item-subtitle>
-                </v-list-item-content>
-              </v-list-item>
-              <v-list-item v-if="!userComments.length">
-                <v-list-item-content>
-                  <v-alert type="info">No comments posted.</v-alert>
-                </v-list-item-content>
-              </v-list-item>
-            </v-list>
-          </v-tab-item>
-          <!-- Liked Tags -->
-          <v-tab-item>
-            <v-chip-group class="mt-4">
-              <v-chip v-for="tag in likedTags" :key="tag" color="primary">
-                {{ tag }}
-              </v-chip>
-              <v-alert v-if="!likedTags.length" type="info">No tags liked.</v-alert>
-            </v-chip-group>
-          </v-tab-item>
-        </v-tabs-items>
-      </v-card>
+      </template>
     </v-container>
   </template>
   
   <script>
-  import { ref, computed, onMounted } from 'vue';
+  import { ref, computed, onMounted, onUnmounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { getAuth } from 'firebase/auth';
-  import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
-  import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+  import { getFirestore, doc, getDoc, setDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
   
   export default {
     setup() {
       const route = useRoute();
       const auth = getAuth();
       const db = getFirestore();
-      const storage = getStorage();
       const profile = ref({});
-      const userAssets = ref([]);
-      const userComments = ref([]);
-      const likedTags = ref([]);
-      const activeTab = ref(0);
-      const user = ref(auth.currentUser);
-      const avatarFile = ref(null);
+      const assets = ref([]);
+      const editing = ref(false);
+      const saving = ref(false);
+      const isLoading = ref(true);
+      const error = ref(null);
+      const profileForm = ref(null);
+      const editedProfile = ref({});
+      const isOwnProfile = ref(false);
+      const isAdmin = ref(false);
+      let unsubscribeAssets = null;
   
-      auth.onAuthStateChanged(u => {
-        user.value = u;
-      });
-  
-      const isOwnProfile = computed(() => {
-        return user.value && user.value.uid === route.params.userId;
-      });
-  
-      const avatarSource = computed(() => {
-        if (profile.value.avatarUrl) return profile.value.avatarUrl;
-        return generateInitialsAvatar(profile.value.name, profile.value.surname);
-      });
-  
-      const generateInitialsAvatar = (name, surname) => {
-        const initials = (name?.charAt(0) || '') + (surname?.charAt(0) || '');
-        if (!initials) return 'https://via.placeholder.com/100';
-        
-        const canvas = document.createElement('canvas');
-        canvas.width = 100;
-        canvas.height = 100;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#C2185B'; // Magenta theme
-        ctx.fillRect(0, 0, 100, 100);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '40px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(initials.toUpperCase(), 50, 50);
-        return canvas.toDataURL();
-      };
-  
+      // Fetch profile data
       const fetchProfile = async () => {
         try {
-          const profileDoc = await getDoc(doc(db, 'profiles', route.params.userId));
+          isLoading.value = true;
+          const userId = route.params.userId;
+          const profileRef = doc(db, 'profiles', userId);
+          const profileDoc = await getDoc(profileRef);
+  
           if (profileDoc.exists()) {
             profile.value = {
-              ...profileDoc.data(),
-              email: route.params.userId,
+              id: profileDoc.id,
+              displayName: profileDoc.data().displayName || 'Unknown User',
+              email: profileDoc.data().email || 'No email',
+              role: profileDoc.data().role || 'user',
+              rating: profileDoc.data().rating || 0,
+              lastActive: profileDoc.data().lastActive || null,
             };
           } else {
             profile.value = {
-              email: route.params.userId,
-              name: '',
-              surname: '',
-              companyEmail: '',
-              bio: '',
-              country: '',
-              avatarUrl: '',
-              displayName: '',
+              id: userId,
+              displayName: 'Unknown User',
+              email: auth.currentUser?.email || 'No email',
+              role: 'user',
+              rating: 0,
+              lastActive: null,
             };
           }
-        } catch (error) {
-          console.error('Error fetching profile:', error);
+          editedProfile.value = { ...profile.value };
+  
+          // Check if this is the current user's profile
+          isOwnProfile.value = auth.currentUser && auth.currentUser.uid === userId;
+  
+          // Check if current user is admin
+          if (auth.currentUser) {
+            const currentUserProfile = await getDoc(doc(db, 'profiles', auth.currentUser.uid));
+            isAdmin.value = currentUserProfile.exists() && currentUserProfile.data().role === 'admin';
+          }
+  
+          // Update or create lastActive for own profile
+          if (isOwnProfile.value) {
+            const lastActiveData = {
+              lastActive: new Date().toISOString(),
+              displayName: profile.value.displayName,
+              email: auth.currentUser?.email || profile.value.email,
+              role: profile.value.role,
+              rating: profile.value.rating,
+            };
+            // Use setDoc with merge to create or update
+            await setDoc(profileRef, lastActiveData, { merge: true });
+            profile.value.lastActive = lastActiveData.lastActive;
+          }
+        } catch (err) {
+          console.error('Error fetching profile:', err);
+          error.value = 'Failed to load profile. Please try again.';
+        } finally {
+          isLoading.value = false;
         }
       };
   
-      const uploadAvatar = async () => {
-        if (!avatarFile.value || !isOwnProfile.value) return;
-        try {
-          const imageRef = storageRef(storage, `avatars/${route.params.userId}/${avatarFile.value.name}`);
-          await uploadBytes(imageRef, avatarFile.value);
-          const avatarUrl = await getDownloadURL(imageRef);
-          profile.value.avatarUrl = avatarUrl;
-          await saveProfile();
-          avatarFile.value = null;
-        } catch (error) {
-          console.error('Error uploading avatar:', error);
-          alert('Failed to upload avatar.');
+      // Fetch assets created by user
+      const fetchAssets = () => {
+        const q = query(collection(db, 'assets'), where('userId', '==', route.params.userId));
+        unsubscribeAssets = onSnapshot(q, (snapshot) => {
+          assets.value = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        }, (err) => {
+          console.error('Error fetching assets:', err);
+          error.value = 'Failed to load assets.';
+        });
+      };
+  
+      // Format lastActive date
+      const lastActiveFormatted = computed(() => {
+        if (!profile.value.lastActive) return null;
+        const date = new Date(profile.value.lastActive);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      });
+  
+      // Format asset created date
+      const formatDate = (isoString) => {
+        if (!isoString) return 'Unknown';
+        const date = new Date(isoString);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      };
+  
+      const startEditing = () => {
+        editing.value = true;
+      };
+  
+      const cancelEditing = () => {
+        editedProfile.value = { ...profile.value };
+        editing.value = false;
+        if (profileForm.value) {
+          profileForm.value.resetValidation();
         }
       };
   
       const saveProfile = async () => {
-        if (!isOwnProfile.value) return;
+        if (!profileForm.value.validate()) return;
+        saving.value = true;
         try {
-          await setDoc(doc(db, 'profiles', route.params.userId), {
-            name: profile.value.name || '',
-            surname: profile.value.surname || '',
-            companyEmail: profile.value.companyEmail || '',
-            bio: profile.value.bio || '',
-            country: profile.value.country || '',
-            avatarUrl: profile.value.avatarUrl || '',
-            displayName: profile.value.displayName || profile.value.email,
-          }, { merge: true });
-          alert('Profile updated successfully!');
+          const profileRef = doc(db, 'profiles', profile.value.id);
+          const updateData = {
+            displayName: editedProfile.value.displayName,
+            lastActive: new Date().toISOString(),
+          };
+          if (isAdmin.value && editedProfile.value.rating !== undefined) {
+            updateData.rating = Number(editedProfile.value.rating);
+          }
+          await setDoc(profileRef, updateData, { merge: true });
+          profile.value = { ...profile.value, ...updateData };
+          editing.value = false;
+          if (profileForm.value) {
+            profileForm.value.resetValidation();
+          }
         } catch (error) {
           console.error('Error saving profile:', error);
-          alert('Failed to update profile.');
+          alert('Failed to save profile.');
+        } finally {
+          saving.value = false;
         }
-      };
-  
-      const fetchUserAssets = async () => {
-        const q = query(collection(db, 'assets'), where('userId', '==', route.params.userId));
-        const snapshot = await getDocs(q);
-        userAssets.value = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-      };
-  
-      const fetchUserComments = async () => {
-        const assetsSnapshot = await getDocs(collection(db, 'assets'));
-        const comments = [];
-        for (const assetDoc of assetsSnapshot.docs) {
-          const assetId = assetDoc.id;
-          const assetName = assetDoc.data().name;
-          const q = query(
-            collection(db, `assets/${assetId}/comments`),
-            where('userId', '==', route.params.userId)
-          );
-          const snapshot = await getDocs(q);
-          snapshot.forEach(doc => {
-            comments.push({
-              id: doc.id,
-              assetId,
-              assetName,
-              ...doc.data(),
-            });
-          });
-        }
-        userComments.value = comments;
-      };
-  
-      const fetchLikedTags = async () => {
-        const q = query(collection(db, 'tagLikes'));
-        const snapshot = await getDocs(q);
-        likedTags.value = snapshot.docs
-          .filter(doc => doc.data().userIds?.includes(route.params.userId))
-          .map(doc => doc.id);
       };
   
       onMounted(() => {
         fetchProfile();
-        fetchUserAssets();
-        fetchUserComments();
-        fetchLikedTags();
+        fetchAssets();
+      });
+  
+      onUnmounted(() => {
+        if (unsubscribeAssets) unsubscribeAssets();
       });
   
       return {
         profile,
-        userAssets,
-        userComments,
-        likedTags,
-        activeTab,
+        assets,
+        editing,
+        saving,
+        isLoading,
+        error,
+        profileForm,
+        editedProfile,
         isOwnProfile,
-        avatarFile,
-        avatarSource,
-        uploadAvatar,
+        isAdmin,
+        lastActiveFormatted,
+        formatDate,
+        startEditing,
+        cancelEditing,
         saveProfile,
       };
     },
   };
   </script>
+  
+  <style scoped>
+  .profile-card {
+    width: 100%;
+    background-color: #FFFFFF;
+    transition: all 0.3s ease;
+  }
+  .profile-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  .assets-card {
+    width: 100%;
+    background-color: #FFFFFF;
+    transition: all 0.3s ease;
+  }
+  .assets-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  .asset-item:hover {
+    background-color: #F9FAFB;
+  }
+  .text-gray-800 {
+    color: #1F2A44;
+  }
+  .text-gray-700 {
+    color: #374151;
+  }
+  .text-gray-600 {
+    color: #4B5563;
+  }
+  .text-blue-500 {
+    color: #3B82F6;
+  }
+  .text-blue-500:hover {
+    color: #2563EB;
+  }
+  .font-weight-semibold {
+    font-weight: 600;
+  }
+  </style>
