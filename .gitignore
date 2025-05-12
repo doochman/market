@@ -1,3 +1,6 @@
+#Distribution directory for web assets
+dist/
+
 # Logs
 logs
 *.log
